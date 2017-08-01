@@ -290,7 +290,7 @@ func newDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
 
 	// if the store doesn't support delete-range, start a emulator to do that.
 	if !store.SupportDeleteRange() {
-		d.delRange = newDelRangeEmulator(d.quitCh, ctxPool)
+		d.delRange = newDelRangeEmulator(d, ctxPool)
 	}
 
 	d.start(ctx)

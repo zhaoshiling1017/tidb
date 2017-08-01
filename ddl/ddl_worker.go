@@ -112,6 +112,10 @@ func (d *ddl) finishDDLJob(t *meta.Meta, job *model.Job) error {
 	switch job.Type {
 	case model.ActionDropSchema, model.ActionDropTable, model.ActionTruncateTable:
 		// TODO: real logic here.
+		err := insertBgJobIntoDeleteRangeTable(d.sqlCtx, job)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	_, err := t.DeQueueDDLJob()

@@ -47,7 +47,7 @@ func LoadPendingBgJobsIntoDeleteTable(ctx context.Context) (err error) {
 		if err != nil || job == nil {
 			break
 		}
-		err = insertBgJobIntoDeleteRangeTable(ctx.(sqlexec.SQLExecutor), job)
+		err = insertBgJobIntoDeleteRangeTable(ctx, job)
 		if err != nil {
 			break
 		}
@@ -58,7 +58,8 @@ func LoadPendingBgJobsIntoDeleteTable(ctx context.Context) (err error) {
 // insertBgJobIntoDeleteRangeTable parses the job into delete-range arguments,
 // and inserts a new record into gc_delete_range table. The primary key is
 // job ID, so we ignore key conflict error.
-func insertBgJobIntoDeleteRangeTable(s sqlexec.SQLExecutor, job *model.Job) error {
+func insertBgJobIntoDeleteRangeTable(ctx context.Context, job *model.Job) error {
+	s := ctx.(sqlexec.SQLExecutor)
 	switch job.Type {
 	case model.ActionDropSchema:
 		var tableIDs []int64
@@ -138,17 +139,17 @@ func CompleteDeleteRange(ctx context.Context, dr DelRangeTask) error {
 
 // delRangeEmulator is only for localstore which doesn't support delete-range.
 type delRangeEmulator struct {
-	quitCh <-chan struct{}
+	ddl    *ddl
 	sqlCtx context.Context
 }
 
 // newDelRangeEmulator binds a SQL context on a delRangeEmulator and returns it.
-func newDelRangeEmulator(quitCh <-chan struct{}, ctxPool *pools.ResourcePool) *delRangeEmulator {
+func newDelRangeEmulator(ddl *ddl, ctxPool *pools.ResourcePool) *delRangeEmulator {
 	resource, _ := ctxPool.Get()
 	ctx := resource.(context.Context)
 	ctx.GetSessionVars().SetStatusFlag(mysql.ServerStatusAutocommit, false)
 	return &delRangeEmulator{
-		quitCh: quitCh,
+		ddl:    ddl,
 		sqlCtx: ctx,
 	}
 	return nil
@@ -156,13 +157,15 @@ func newDelRangeEmulator(quitCh <-chan struct{}, ctxPool *pools.ResourcePool) *d
 
 func (delRange *delRangeEmulator) start() {
 	go func() {
+		defer delRange.ddl.wait.Done()
+
 		checkTime := 60 * time.Second // TODO: get from safepoint.
 		ticker := time.NewTicker(checkTime)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-			case <-delRange.quitCh:
+			case <-delRange.ddl.quitCh:
 				return
 			}
 			// TODO: Emulate delete-range here.
