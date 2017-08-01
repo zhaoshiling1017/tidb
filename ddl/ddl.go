@@ -322,7 +322,7 @@ func (d *ddl) start(ctx goctx.Context) {
 	// check owner firstly and try to find whether a job exists and run.
 	asyncNotify(d.ddlJobCh)
 
-	if d.store.SupportDeleteRange() {
+	if !d.store.SupportDeleteRange() {
 		d.wait.Add(1)
 		d.delRange.start()
 	}
