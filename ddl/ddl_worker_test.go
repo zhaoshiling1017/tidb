@@ -39,7 +39,7 @@ func (s *testDDLSuite) TestCheckOwner(c *C) {
 	store := testCreateStore(c, "test_owner")
 	defer store.Close()
 
-	d1 := newDDL(goctx.Background(), nil, store, nil, nil, testLease)
+	d1 := testNewDDL(goctx.Background(), nil, store, nil, nil, testLease)
 	defer d1.Stop()
 	time.Sleep(testLease)
 	testCheckOwner(c, d1, true)
@@ -54,7 +54,7 @@ func (s *testDDLSuite) TestSchemaError(c *C) {
 	store := testCreateStore(c, "test_schema_error")
 	defer store.Close()
 
-	d := newDDL(goctx.Background(), nil, store, nil, nil, testLease)
+	d := testNewDDL(goctx.Background(), nil, store, nil, nil, testLease)
 	defer d.Stop()
 	ctx := testNewContext(d)
 
@@ -66,7 +66,7 @@ func (s *testDDLSuite) TestTableError(c *C) {
 	store := testCreateStore(c, "test_table_error")
 	defer store.Close()
 
-	d := newDDL(goctx.Background(), nil, store, nil, nil, testLease)
+	d := testNewDDL(goctx.Background(), nil, store, nil, nil, testLease)
 	defer d.Stop()
 	ctx := testNewContext(d)
 
@@ -108,7 +108,7 @@ func (s *testDDLSuite) TestForeignKeyError(c *C) {
 	store := testCreateStore(c, "test_foreign_key_error")
 	defer store.Close()
 
-	d := newDDL(goctx.Background(), nil, store, nil, nil, testLease)
+	d := testNewDDL(goctx.Background(), nil, store, nil, nil, testLease)
 	defer d.Stop()
 	ctx := testNewContext(d)
 
@@ -127,7 +127,7 @@ func (s *testDDLSuite) TestIndexError(c *C) {
 	store := testCreateStore(c, "test_index_error")
 	defer store.Close()
 
-	d := newDDL(goctx.Background(), nil, store, nil, nil, testLease)
+	d := testNewDDL(goctx.Background(), nil, store, nil, nil, testLease)
 	defer d.Stop()
 	ctx := testNewContext(d)
 
@@ -163,7 +163,7 @@ func (s *testDDLSuite) TestColumnError(c *C) {
 	defer testleak.AfterTest(c)()
 	store := testCreateStore(c, "test_column_error")
 	defer store.Close()
-	d := newDDL(goctx.Background(), nil, store, nil, nil, testLease)
+	d := testNewDDL(goctx.Background(), nil, store, nil, nil, testLease)
 	defer d.Stop()
 	ctx := testNewContext(d)
 

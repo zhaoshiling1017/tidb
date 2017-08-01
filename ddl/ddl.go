@@ -244,14 +244,34 @@ func (d *ddl) asyncNotifyEvent(e *Event) {
 
 // NewDDL creates a new DDL.
 func NewDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
-	infoHandle *infoschema.Handle, hook Callback, lease time.Duration,
-	ctxPool *pools.ResourcePool) DDL {
+	infoHandle *infoschema.Handle, hook Callback, lease time.Duration, ctxPool *pools.ResourcePool) DDL {
 	return newDDL(ctx, etcdCli, store, infoHandle, hook, lease, ctxPool)
 }
 
 func newDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
-	infoHandle *infoschema.Handle, hook Callback, lease time.Duration,
-	ctxPool *pools.ResourcePool) *ddl {
+	infoHandle *infoschema.Handle, hook Callback, lease time.Duration, ctxPool *pools.ResourcePool) *ddl {
+	d := initDDL(ctx, etcdCli, store, infoHandle, hook, lease)
+
+	// Attach a session to INSERT gc_delete_range table.
+	resource, _ := ctxPool.Get()
+	d.sqlCtx = resource.(context.Context)
+	d.sqlCtx.GetSessionVars().SetStatusFlag(mysql.ServerStatusAutocommit, false)
+
+	// if the store doesn't support delete-range, start a emulator to do that.
+	if !store.SupportDeleteRange() {
+		d.delRange = newDelRangeEmulator(d, ctxPool)
+	}
+
+	d.start(ctx)
+
+	variable.RegisterStatistics(d)
+	log.Infof("start DDL:%s, with delete-range emulator:%t", d.uuid, !store.SupportDeleteRange())
+
+	return d
+}
+
+func initDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
+	infoHandle *infoschema.Handle, hook Callback, lease time.Duration) *ddl {
 	if hook == nil {
 		hook = &BaseCallback{}
 	}
@@ -282,22 +302,6 @@ func newDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
 		workerVars:   variable.NewSessionVars(),
 	}
 	d.workerVars.BinlogClient = binloginfo.GetPumpClient()
-
-	// Attach a session to INSERT gc_delete_range table.
-	resource, _ := ctxPool.Get()
-	d.sqlCtx = resource.(context.Context)
-	d.sqlCtx.GetSessionVars().SetStatusFlag(mysql.ServerStatusAutocommit, false)
-
-	// if the store doesn't support delete-range, start a emulator to do that.
-	if !store.SupportDeleteRange() {
-		d.delRange = newDelRangeEmulator(d, ctxPool)
-	}
-
-	d.start(ctx)
-
-	variable.RegisterStatistics(d)
-	log.Infof("start DDL:%s, with delete-range emulator:%t", d.uuid, !store.SupportDeleteRange())
-
 	return d
 }
 
@@ -322,7 +326,7 @@ func (d *ddl) start(ctx goctx.Context) {
 	// check owner firstly and try to find whether a job exists and run.
 	asyncNotify(d.ddlJobCh)
 
-	if !d.store.SupportDeleteRange() {
+	if d.delRange != nil {
 		d.wait.Add(1)
 		d.delRange.start()
 	}
