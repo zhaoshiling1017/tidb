@@ -296,7 +296,7 @@ func newDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
 	d.start(ctx)
 
 	variable.RegisterStatistics(d)
-	log.Infof("start DDL:%s", d.uuid)
+	log.Infof("start DDL:%s, with delete-range emulator:%t", d.uuid, !store.SupportDeleteRange())
 
 	return d
 }

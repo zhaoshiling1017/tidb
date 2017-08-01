@@ -82,6 +82,18 @@ func insertBgJobIntoDeleteRangeTable(ctx context.Context, job *model.Job) error 
 	return nil
 }
 
+func startTxn(ctx context.Context) error {
+	s := ctx.(sqlexec.SQLExecutor)
+	_, err := s.Execute("BEGIN")
+	return errors.Trace(err)
+}
+
+func commitTxn(ctx context.Context) error {
+	s := ctx.(sqlexec.SQLExecutor)
+	_, err := s.Execute("COMMIT")
+	return errors.Trace(err)
+}
+
 func doInsert(s sqlexec.SQLExecutor, jobID int64, elementID int64, startKey, endKey kv.Key, ts int64) error {
 	log.Infof("[ddl] insert into delete-range table with key: (%d,%d)", jobID, elementID)
 	startKeyEncoded := hex.EncodeToString(startKey)
