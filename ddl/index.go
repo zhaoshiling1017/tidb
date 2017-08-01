@@ -646,7 +646,7 @@ func (d *ddl) doBackfillIndexTask(t table.Table, taskOpInfo *indexTaskOpInfo, st
 	ret := new(taskResult)
 	handleInfo := &handleInfo{startHandle: startHandle}
 	err := kv.RunInNewTxn(d.store, true, func(txn kv.Transaction) error {
-		err1 := d.isReorgRunnable(txn, ddlJobFlag)
+		err1 := d.isReorgRunnable(txn)
 		if err1 != nil {
 			return errors.Trace(err1)
 		}
@@ -706,7 +706,7 @@ func (d *ddl) dropTableIndex(indexInfo *model.IndexInfo, job *model.Job) error {
 	startKey := tablecodec.EncodeTableIndexPrefix(job.TableID, indexInfo.ID)
 	// It's asynchronous so it doesn't need to consider if it completes.
 	deleteAll := -1
-	_, _, err := d.delKeysWithStartKey(startKey, startKey, ddlJobFlag, job, deleteAll)
+	_, _, err := d.delKeysWithStartKey(startKey, startKey, job, deleteAll)
 	return errors.Trace(err)
 }
 
