@@ -109,6 +109,11 @@ type DelRangeTask struct {
 	startKey, endKey []byte
 }
 
+// Range returns the range [start, end) to delete.
+func (t DelRangeTask) Range() ([]byte, []byte) {
+	return t.startKey, t.endKey
+}
+
 // LoadDeleteRanges loads delete range tasks from gc_delete_range table.
 func LoadDeleteRanges(ctx context.Context, safePoint uint64) (ranges []DelRangeTask, _ error) {
 	sql := fmt.Sprintf(loadDeleteRangeSQL, safePoint)
