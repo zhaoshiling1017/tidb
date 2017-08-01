@@ -290,7 +290,7 @@ func newDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
 
 	// if the store doesn't support delete-range, start a emulator to do that.
 	if !store.SupportDeleteRange() {
-		d.delRange = newDelRangeEmulator(ctxPool)
+		d.delRange = newDelRangeEmulator(d.quitCh, ctxPool)
 	}
 
 	d.start(ctx)
@@ -315,12 +315,17 @@ func (d *ddl) start(ctx goctx.Context) {
 	d.quitCh = make(chan struct{})
 	d.ownerManager.CampaignOwners(ctx)
 
-	d.wait.Add(2)
+	d.wait.Add(1)
 	go d.onDDLWorker()
 
 	// For every start, we will send a fake job to let worker
 	// check owner firstly and try to find whether a job exists and run.
 	asyncNotify(d.ddlJobCh)
+
+	if d.store.SupportDeleteRange() {
+		d.wait.Add(1)
+		d.delRange.start()
+	}
 }
 
 func (d *ddl) close() {
