@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/ngaut/log"
+	"github.com/ngaut/pools"
 	"github.com/pingcap/tidb/context"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
@@ -33,7 +34,7 @@ const (
 )
 
 // LoadPendingBgJobsIntoDeleteTable loads all pending DDL backgroud jobs
-// into table `gc_delete_range` so that gc worker can deal with them.
+// into table `gc_delete_range` so that gc worker can process them.
 // NOTE: This function WILL NOT start and run in a new transaction internally.
 func LoadPendingBgJobsIntoDeleteTable(ctx context.Context) (err error) {
 	var met = meta.NewMeta(ctx.Txn())
@@ -84,4 +85,12 @@ func doInsert(s sqlexec.SQLExecutor, jobID int64, elementID int64, startKey, end
 	sql := fmt.Sprintf(insertDeleteRangeSQL, jobID, elementID, startKeyEncoded, endKeyEncoded, ts)
 	_, err := s.Execute(sql)
 	return errors.Trace(err)
+}
+
+type delRangeEmulator struct {
+	sqlCtx context.Context
+}
+
+func newDelRangeEmulator(ctxPool *pools.ResourcePool) *delRangeEmulator {
+	return nil
 }

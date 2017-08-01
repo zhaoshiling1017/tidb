@@ -25,6 +25,7 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/juju/errors"
 	"github.com/ngaut/log"
+	"github.com/ngaut/pools"
 	"github.com/pingcap/tidb/ast"
 	"github.com/pingcap/tidb/context"
 	"github.com/pingcap/tidb/infoschema"
@@ -211,7 +212,9 @@ type ddl struct {
 	wait   sync.WaitGroup
 
 	workerVars *variable.SessionVars
-	sqlCtx     context.Context
+
+	sqlCtx   context.Context
+	delRange *delRangeEmulator
 }
 
 // RegisterEventCh registers passed channel for ddl Event.
@@ -245,12 +248,14 @@ func (d *ddl) asyncNotifyEvent(e *Event) {
 
 // NewDDL creates a new DDL.
 func NewDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
-	infoHandle *infoschema.Handle, hook Callback, lease time.Duration) DDL {
-	return newDDL(ctx, etcdCli, store, infoHandle, hook, lease)
+	infoHandle *infoschema.Handle, hook Callback, lease time.Duration,
+	ctxPool *pools.ResourcePool) DDL {
+	return newDDL(ctx, etcdCli, store, infoHandle, hook, lease, ctxPool)
 }
 
 func newDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
-	infoHandle *infoschema.Handle, hook Callback, lease time.Duration) *ddl {
+	infoHandle *infoschema.Handle, hook Callback, lease time.Duration,
+	ctxPool *pools.ResourcePool) *ddl {
 	if hook == nil {
 		hook = &BaseCallback{}
 	}
@@ -282,6 +287,17 @@ func newDDL(ctx goctx.Context, etcdCli *clientv3.Client, store kv.Storage,
 		workerVars:   variable.NewSessionVars(),
 	}
 	d.workerVars.BinlogClient = binloginfo.GetPumpClient()
+
+	// Attach a session to INSERT gc_delete_range table.
+	resource, _ := ctxPool.Get()
+	sqlCtx := resource.(context.Context)
+	sqlCtx.GetSessionVars().SetStatusFlag(mysql.ServerStatusAutocommit, false)
+	d.SetSQLContext(sqlCtx)
+
+	// if the store doesn't support delete-range, start a emulator to do that.
+	if !store.SupportDeleteRange() {
+		d.delRange = newDelRangeEmulator(ctxPool)
+	}
 
 	d.start(ctx)
 
