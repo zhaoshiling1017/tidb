@@ -155,8 +155,6 @@ type DDL interface {
 	WorkerVars() *variable.SessionVars
 	// SetHook sets the hook. It's exported for testing.
 	SetHook(h Callback)
-	// SetSQLContext sets the SQL context which is used to update delete-range tasks.
-	SetSQLContext(ctx context.Context)
 }
 
 // Event is an event that a ddl operation happened.
@@ -483,10 +481,6 @@ func (d *ddl) SetHook(h Callback) {
 	defer d.hookMu.Unlock()
 
 	d.hook = h
-}
-
-func (d *ddl) SetSQLContext(ctx context.Context) {
-	d.sqlCtx = ctx
 }
 
 func (d *ddl) WorkerVars() *variable.SessionVars {
