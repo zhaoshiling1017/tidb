@@ -26,6 +26,8 @@ import (
 	"github.com/pingcap/tidb/util/types"
 	"github.com/pingcap/tipb/go-tipb"
 	goctx "golang.org/x/net/context"
+
+	"github.com/ngaut/log"
 )
 
 var (
@@ -118,6 +120,8 @@ func (e *TableReaderExecutor) Next() (*Row, error) {
 			continue
 		}
 		values := make([]types.Datum, e.schema.Len())
+		log.Errorf("TableReader schema: %s", e.schema)
+		log.Errorf("handleIsExtra: %t", handleIsExtra(e.handleCol))
 		if handleIsExtra(e.handleCol) {
 			err = codec.SetRawValues(rowData, values[:len(values)-1])
 			values[len(values)-1].SetInt64(h)

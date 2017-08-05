@@ -169,6 +169,7 @@ func (p *MySQLPrivilege) LoadColumnsPrivTable(ctx context.Context) error {
 
 func (p *MySQLPrivilege) loadTable(ctx context.Context, sql string,
 	decodeTableRow func(*ast.Row, []*ast.ResultField) error) error {
+	log.Errorf("sql: %s", sql)
 	tmp, err := ctx.(sqlexec.SQLExecutor).Execute(sql)
 	if err != nil {
 		return errors.Trace(err)
@@ -198,6 +199,7 @@ func (p *MySQLPrivilege) loadTable(ctx context.Context, sql string,
 }
 
 func (p *MySQLPrivilege) decodeUserTableRow(row *ast.Row, fs []*ast.ResultField) error {
+	log.Errorf("row len: %d, fs len: %d", len(row.Data), len(fs))
 	var value userRecord
 	for i, f := range fs {
 		d := row.Data[i]

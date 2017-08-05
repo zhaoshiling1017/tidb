@@ -705,6 +705,8 @@ func (p *DataSource) convertToIndexScan(prop *requiredProp, idx *model.IndexInfo
 		// On this way, it's double read case.
 		cop.tablePlan = PhysicalTableScan{Columns: p.Columns, Table: is.Table, GenValues: p.GenValues}.init(p.allocator, p.ctx)
 		cop.tablePlan.SetSchema(is.dataSourceSchema)
+		log.Errorf("old table plan schema: %s", p.schema)
+		log.Errorf("new table plan schema: %s", is.dataSourceSchema)
 		// If it's parent requires single read task, return max cost.
 		if prop.taskTp == copSingleReadTaskType {
 			return &copTask{cst: math.MaxFloat64}, nil

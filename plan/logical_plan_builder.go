@@ -29,6 +29,8 @@ import (
 	"github.com/pingcap/tidb/statistics"
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/util/types"
+
+	"github.com/ngaut/log"
 )
 
 const (
@@ -1184,10 +1186,12 @@ func (b *planBuilder) buildDataSource(tn *ast.TableName) LogicalPlan {
 	}
 	needUnionScan := b.ctx.Txn() != nil && !b.ctx.Txn().IsReadOnly()
 	if b.needColHandle == 0 && !needUnionScan {
+		log.Errorf("don't need column handle, return directly")
 		p.SetSchema(schema)
 		return p
 	}
 	if pkCol == nil || needUnionScan {
+		log.Errorf("pkCol is nil, append _rowid to schema and columns")
 		idCol := &expression.Column{
 			FromID:   p.id,
 			DBName:   schemaName,
@@ -1215,6 +1219,7 @@ func (b *planBuilder) buildDataSource(tn *ast.TableName) LogicalPlan {
 		schema.Append(idCol)
 		schema.TblID2Handle[tableInfo.ID] = []*expression.Column{idCol}
 	} else {
+		log.Errorf("pkCol is not nil, pk: %s", pkCol.String())
 		schema.TblID2Handle[tableInfo.ID] = []*expression.Column{pkCol}
 	}
 	p.SetSchema(schema)

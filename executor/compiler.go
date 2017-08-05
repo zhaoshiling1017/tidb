@@ -49,6 +49,7 @@ func (c *Compiler) Compile(ctx context.Context, node ast.StmtNode) (ast.Statemen
 		text:      node.Text(),
 		expensive: isExpensive,
 	}
+	log.Errorf("SQL: %s", node.Text())
 	return sa, nil
 }
 
