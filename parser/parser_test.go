@@ -523,6 +523,16 @@ func (s *testParserSuite) TestExpression(c *C) {
 		{"select n'string'", true},
 		// for comparison
 		{"select 1 <=> 0, 1 <=> null, 1 = null", true},
+
+		// fix #4026
+		{"SELECT CAST('2006-09-26' AS DATE) + INTERVAL 1 DAY;", true},
+		{"SELECT CAST('2006-09-26' AS DATE) + interval 1+1 DAY;", true},
+		{"SELECT CAST('2006-09-26' AS DATE) - interval 1+1 DAY;", true},
+		{"SELECT 1 - interval 1 DAY;", true},
+		{"SELECT interval 1 DAY - 1;", false},
+
+		// TODO: support below case.
+		// {"SELECT INTERVAL 1 DAY + '2008-12-31';", true},
 	}
 	s.RunTest(c, table)
 }

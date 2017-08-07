@@ -669,7 +669,6 @@ import (
 	IndexTypeOpt		"Optional index type"
 	InsertIntoStmt		"INSERT INTO statement"
 	InsertValues		"Rest part of INSERT/REPLACE INTO statement"
-	IntervalTimeFunc	"INTERVAL expr unit"
 	JoinTable 		"join table"
 	JoinType		"join type"
 	KillStmt		"Kill statement"
@@ -883,9 +882,6 @@ import (
 
 %precedence lowerThanSQLCache
 %precedence sqlCache sqlNoCache
-
-%precedence lowerThanIntervalTimeFunc
-%precedence intervalTimeFunc
 
 %precedence lowerThanIntervalKeyword
 %precedence interval
@@ -3130,7 +3126,7 @@ FunctionCallNonKeyword:
 			},
 		}
 	}
-|	FunctionNameDateArithMultiForms '(' Expression ',' "INTERVAL" Expression TimeUnit ')' %prec lowerThanIntervalTimeFunc
+|	FunctionNameDateArithMultiForms '(' Expression ',' "INTERVAL" Expression TimeUnit ')' 
 	{
 		$$ = &ast.FuncCallExpr{
 			FnName: model.NewCIStr($1),
@@ -3141,7 +3137,7 @@ FunctionCallNonKeyword:
 			},
 		}
 	}
-|	FunctionNameDateArith '(' Expression ',' "INTERVAL" Expression TimeUnit ')' %prec lowerThanIntervalTimeFunc
+|	FunctionNameDateArith '(' Expression ',' "INTERVAL" Expression TimeUnit ')' 
 	{
 		$$ = &ast.FuncCallExpr{
 			FnName: model.NewCIStr($1),
@@ -3817,19 +3813,7 @@ FunctionCallNonKeyword:
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr($1)}
 	}
-| IntervalTimeFunc
 
-IntervalTimeFunc:
-"INTERVAL" Expression TimeUnit %prec intervalTimeFunc
-{
-	$$ = &ast.FuncCallExpr{
-			FnName: model.NewCIStr(ast.IntervalTime), 
-			Args:[]ast.ExprNode{
-				$2.(ast.ExprNode),
-				ast.NewValueExpr($3),
-			},
-		}
-}
 
 GetFormatSelector:
 	"DATE"
@@ -4217,6 +4201,14 @@ PrimaryFactor:
 |	PrimaryFactor '-' PrimaryFactor %prec '-'
 	{
 		$$ = &ast.BinaryOperationExpr{Op: opcode.Minus, L: $1.(ast.ExprNode), R: $3.(ast.ExprNode)}
+	}
+|   PrimaryFactor '+' "INTERVAL" Expression TimeUnit %prec '+'
+	{
+		// TODO:
+	}
+| 	PrimaryFactor '-' "INTERVAL" Expression TimeUnit %prec '-' 
+	{
+		// TODO:
 	}
 |	PrimaryFactor '*' PrimaryFactor %prec '*'
 	{

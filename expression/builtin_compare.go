@@ -216,7 +216,7 @@ func (c *intervalTimeFunctionClass) getFunction(args []Expression, ctx context.C
 		return nil, errors.Trace(err)
 	}
 
-	sig := &builtinIntervalTimeSig{bf}
+	sig := &builtinIntervalTimeSig{baseTimeBuiltinFunc{bf}}
 	return sig.setSelf(sig), nil
 }
 
@@ -225,16 +225,17 @@ type builtinIntervalTimeSig struct {
 }
 
 func (b *builtinIntervalTimeSig) evalTime(row []types.Datum) (d types.Time, isNull bool, err error) {
-	sc := b.getCtx().GetSessionVars().StmtCtx
-	expr, isNull, err := b.args[0].EvalString(row, sc)
-	if err != nil || isNull {
-		return d, isNull, errors.Trace(err)
-	}
+	// sc := b.getCtx().GetSessionVars().StmtCtx
+	// expr, isNull, err := b.args[0].EvalString(row, sc)
+	// if err != nil || isNull {
+	// 	return d, isNull, errors.Trace(err)
+	// }
 
-	unit, isNull, err := b.args[1].EvalString(row, sc)
-	if err != nil || isNull {
-		return d, isNull, errors.Trace(err)
-	}
+	// unit, isNull, err := b.args[1].EvalString(row, sc)
+	// if err != nil || isNull {
+	// 	return d, isNull, errors.Trace(err)
+	// }
+	return
 }
 
 type intervalFunctionClass struct {
