@@ -256,7 +256,7 @@ func DecodeComparableVarint(b []byte) ([]byte, int64, error) {
 	}
 	first := b[0]
 	if first >= negativeTagEnd && first <= positiveTagStart {
-		return b, int64(first) - negativeTagEnd, nil
+		return b[1:], int64(first) - negativeTagEnd, nil
 	}
 	b = b[1:]
 	var length int

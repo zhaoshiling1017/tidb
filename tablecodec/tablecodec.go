@@ -61,7 +61,8 @@ func EncodeRowKey(tableID int64, encodedHandle []byte) kv.Key {
 func EncodeRowKeyWithHandle(tableID int64, handle int64) kv.Key {
 	buf := make([]byte, 0, recordRowKeyLen+idLen)
 	buf = appendTableRecordPrefix(buf, tableID)
-	buf = codec.EncodeInt(buf, handle)
+	// buf = codec.EncodeInt(buf, handle)
+	buf = codec.EncodeComparableVarint(buf, handle)
 	return buf
 }
 
@@ -69,32 +70,40 @@ func EncodeRowKeyWithHandle(tableID int64, handle int64) kv.Key {
 func EncodeRecordKey(recordPrefix kv.Key, h int64) kv.Key {
 	buf := make([]byte, 0, len(recordPrefix)+16)
 	buf = append(buf, recordPrefix...)
-	buf = codec.EncodeInt(buf, h)
+	// buf = codec.EncodeInt(buf, h)
+	buf = codec.EncodeComparableVarint(buf, h)
 	return buf
 }
 
 // DecodeRecordKey decodes the key and gets the tableID, handle.
 func DecodeRecordKey(key kv.Key) (tableID int64, handle int64, err error) {
-	k := key
+	tableID, handle, _, err = decodeRecordKey(key, recordPrefixSep)
+	return
+}
+
+func decodeRecordKey(key kv.Key, prefixSep []byte) (tableID int64, handle int64, remain kv.Key, err error) {
+	remain = key
 	if !key.HasPrefix(tablePrefix) {
-		return 0, 0, errInvalidRecordKey.Gen("invalid record key - %q", k)
+		return 0, 0, key, errInvalidRecordKey.Gen("invalid record key - %q", key)
 	}
 
-	key = key[len(tablePrefix):]
-	key, tableID, err = codec.DecodeInt(key)
+	remain = remain[len(tablePrefix):]
+	// key, tableID, err = codec.DecodeInt(key)
+	remain, tableID, err = codec.DecodeComparableVarint(remain)
 	if err != nil {
-		return 0, 0, errors.Trace(err)
+		return 0, 0, key, errors.Trace(err)
 	}
 
-	if !key.HasPrefix(recordPrefixSep) {
-		return 0, 0, errInvalidRecordKey.Gen("invalid record key - %q", k)
+	if !remain.HasPrefix(prefixSep) {
+		return 0, 0, key, errInvalidRecordKey.Gen("invalid record key - %q", key)
 	}
 
-	key = key[len(recordPrefixSep):]
+	remain = remain[len(prefixSep):]
 
-	key, handle, err = codec.DecodeInt(key)
+	// key, handle, err = codec.DecodeInt(key)
+	remain, handle, err = codec.DecodeComparableVarint(remain)
 	if err != nil {
-		return 0, 0, errors.Trace(err)
+		return 0, 0, key, errors.Trace(err)
 	}
 	return
 }
@@ -109,7 +118,8 @@ func DecodeKeyHead(key kv.Key) (tableID int64, indexID int64, isRecordKey bool, 
 	}
 
 	key = key[len(tablePrefix):]
-	key, tableID, err = codec.DecodeInt(key)
+	// key, tableID, err = codec.DecodeInt(key)
+	key, tableID, err = codec.DecodeComparableVarint(key)
 	if err != nil {
 		err = errors.Trace(err)
 		return
@@ -126,7 +136,8 @@ func DecodeKeyHead(key kv.Key) (tableID int64, indexID int64, isRecordKey bool, 
 
 	key = key[len(indexPrefixSep):]
 
-	key, indexID, err = codec.DecodeInt(key)
+	// key, indexID, err = codec.DecodeInt(key)
+	key, indexID, err = codec.DecodeComparableVarint(key)
 	if err != nil {
 		err = errors.Trace(err)
 		return
@@ -140,13 +151,13 @@ func DecodeTableID(key kv.Key) int64 {
 		return 0
 	}
 	key = key[len(tablePrefix):]
-	_, tableID, _ := codec.DecodeInt(key)
+	_, tableID, _ := codec.DecodeComparableVarint(key)
 	return tableID
 }
 
 // DecodeRowKey decodes the key and gets the handle.
 func DecodeRowKey(key kv.Key) (int64, error) {
-	_, handle, err := DecodeRecordKey(key)
+	_, handle, _, err := decodeRecordKey(key, recordPrefixSep)
 	return handle, errors.Trace(err)
 }
 
@@ -439,22 +450,28 @@ func unflatten(datum types.Datum, ft *types.FieldType, loc *time.Location) (type
 func EncodeIndexSeekKey(tableID int64, idxID int64, encodedValue []byte) kv.Key {
 	key := make([]byte, 0, prefixLen+len(encodedValue))
 	key = appendTableIndexPrefix(key, tableID)
-	key = codec.EncodeInt(key, idxID)
+	// key = codec.EncodeInt(key, idxID)
+	key = codec.EncodeComparableVarint(key, idxID)
 	key = append(key, encodedValue...)
 	return key
 }
 
 // DecodeIndexKey decodes datums from an index key.
-func DecodeIndexKey(key kv.Key) ([]types.Datum, error) {
-	b := key[prefixLen+idLen:]
-	return codec.Decode(b, 1)
-}
+// func DecodeIndexKey(key kv.Key) ([]types.Datum, error) {
+// 	b := key[prefixLen+idLen:]
+// 	return codec.Decode(b, 1)
+// }
 
 // CutIndexKey cuts encoded index key into colIDs to bytes slices map.
 // The returned value b is the remaining bytes of the key which would be empty if it is unique index or handle data
 // if it is non-unique index.
 func CutIndexKey(key kv.Key, colIDs []int64) (values map[int64][]byte, b []byte, err error) {
-	b = key[prefixLen+idLen:]
+	_, _, b, err1 := decodeRecordKey(key, indexPrefixSep)
+	if err1 != nil {
+		err = errors.Trace(err1)
+		return
+	}
+
 	values = make(map[int64][]byte)
 	for _, id := range colIDs {
 		var val []byte
@@ -471,7 +488,12 @@ func CutIndexKey(key kv.Key, colIDs []int64) (values map[int64][]byte, b []byte,
 // The returned value b is the remaining bytes of the key which would be empty if it is unique index or handle data
 // if it is non-unique index.
 func CutIndexKeyNew(key kv.Key, length int) (values [][]byte, b []byte, err error) {
-	b = key[prefixLen+idLen:]
+	_, _, b, err1 := decodeRecordKey(key, indexPrefixSep)
+	if err1 != nil {
+		err = errors.Trace(err1)
+		return
+	}
+
 	values = make([][]byte, 0, length)
 	for i := 0; i < length; i++ {
 		var val []byte
@@ -488,7 +510,8 @@ func CutIndexKeyNew(key kv.Key, length int) (values [][]byte, b []byte, err erro
 func EncodeTableIndexPrefix(tableID, idxID int64) kv.Key {
 	key := make([]byte, 0, prefixLen)
 	key = appendTableIndexPrefix(key, tableID)
-	key = codec.EncodeInt(key, idxID)
+	// key = codec.EncodeInt(key, idxID)
+	key = codec.EncodeComparableVarint(key, idxID)
 	return key
 }
 
@@ -496,14 +519,16 @@ func EncodeTableIndexPrefix(tableID, idxID int64) kv.Key {
 func EncodeTablePrefix(tableID int64) kv.Key {
 	var key kv.Key
 	key = append(key, tablePrefix...)
-	key = codec.EncodeInt(key, tableID)
+	// key = codec.EncodeInt(key, tableID)
+	key = codec.EncodeComparableVarint(key, tableID)
 	return key
 }
 
 // appendTableRecordPrefix appends table record prefix  "t[tableID]_r".
 func appendTableRecordPrefix(buf []byte, tableID int64) []byte {
 	buf = append(buf, tablePrefix...)
-	buf = codec.EncodeInt(buf, tableID)
+	// buf = codec.EncodeInt(buf, tableID)
+	buf = codec.EncodeComparableVarint(buf, tableID)
 	buf = append(buf, recordPrefixSep...)
 	return buf
 }
@@ -511,7 +536,8 @@ func appendTableRecordPrefix(buf []byte, tableID int64) []byte {
 // appendTableIndexPrefix appends table index prefix  "t[tableID]_i".
 func appendTableIndexPrefix(buf []byte, tableID int64) []byte {
 	buf = append(buf, tablePrefix...)
-	buf = codec.EncodeInt(buf, tableID)
+	// buf = codec.EncodeInt(buf, tableID)
+	buf = codec.EncodeComparableVarint(buf, tableID)
 	buf = append(buf, indexPrefixSep...)
 	return buf
 }
@@ -530,8 +556,9 @@ func GenTableIndexPrefix(tableID int64) kv.Key {
 
 // TruncateToRowKeyLen truncates the key to row key length if the key is longer than row key.
 func TruncateToRowKeyLen(key kv.Key) kv.Key {
-	if len(key) > recordRowKeyLen {
-		return key[:recordRowKeyLen]
+	_, _, remain, err := decodeRecordKey(key, recordPrefixSep)
+	if err != nil {
+		return key[:len(key)-len(remain)]
 	}
 	return key
 }

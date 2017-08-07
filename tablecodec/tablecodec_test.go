@@ -38,7 +38,7 @@ type testTableCodecSuite struct{}
 // TODO: add more tests.
 func (s *testTableCodecSuite) TestTableCodec(c *C) {
 	defer testleak.AfterTest(c)()
-	key := EncodeRowKey(1, codec.EncodeInt(nil, 2))
+	key := EncodeRowKey(1, codec.EncodeComparableVarint(nil, 2))
 	h, err := DecodeRowKey(key)
 	c.Assert(err, IsNil)
 	c.Assert(h, Equals, int64(2))
@@ -241,6 +241,7 @@ func (s *testTableCodecSuite) TestCutKeyNew(c *C) {
 	indexID := int64(5)
 	indexKey := EncodeIndexSeekKey(tableID, indexID, encodedValue)
 	valuesBytes, handleBytes, err := CutIndexKeyNew(indexKey, 3)
+
 	c.Assert(err, IsNil)
 	for i := 0; i < 3; i++ {
 		valueBytes := valuesBytes[i]
