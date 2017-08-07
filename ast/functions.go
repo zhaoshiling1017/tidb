@@ -70,6 +70,8 @@ const (
 	Greatest = "greatest"
 	Least    = "least"
 	Interval = "interval"
+	// Avoid name conflit with Interval, syntax is "INTERVAL expr unit".
+	IntervalTime = "interval_time"
 
 	// math functions
 	Abs      = "abs"

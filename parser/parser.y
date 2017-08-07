@@ -669,6 +669,7 @@ import (
 	IndexTypeOpt		"Optional index type"
 	InsertIntoStmt		"INSERT INTO statement"
 	InsertValues		"Rest part of INSERT/REPLACE INTO statement"
+	IntervalTimeFunc	"INTERVAL expr unit"
 	JoinTable 		"join table"
 	JoinType		"join type"
 	KillStmt		"Kill statement"
@@ -883,6 +884,9 @@ import (
 %precedence lowerThanSQLCache
 %precedence sqlCache sqlNoCache
 
+%precedence lowerThanIntervalTimeFunc
+%precedence intervalTimeFunc
+
 %precedence lowerThanIntervalKeyword
 %precedence interval
 
@@ -891,6 +895,7 @@ import (
 
 %precedence lowerThanInsertValues
 %precedence insertValues
+
 
 %precedence lowerThanKey
 %precedence key
@@ -3125,7 +3130,7 @@ FunctionCallNonKeyword:
 			},
 		}
 	}
-|	FunctionNameDateArithMultiForms '(' Expression ',' "INTERVAL" Expression TimeUnit ')'
+|	FunctionNameDateArithMultiForms '(' Expression ',' "INTERVAL" Expression TimeUnit ')' %prec lowerThanIntervalTimeFunc
 	{
 		$$ = &ast.FuncCallExpr{
 			FnName: model.NewCIStr($1),
@@ -3136,7 +3141,7 @@ FunctionCallNonKeyword:
 			},
 		}
 	}
-|	FunctionNameDateArith '(' Expression ',' "INTERVAL" Expression TimeUnit ')'
+|	FunctionNameDateArith '(' Expression ',' "INTERVAL" Expression TimeUnit ')' %prec lowerThanIntervalTimeFunc
 	{
 		$$ = &ast.FuncCallExpr{
 			FnName: model.NewCIStr($1),
@@ -3812,6 +3817,19 @@ FunctionCallNonKeyword:
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr($1)}
 	}
+| IntervalTimeFunc
+
+IntervalTimeFunc:
+"INTERVAL" Expression TimeUnit %prec intervalTimeFunc
+{
+	$$ = &ast.FuncCallExpr{
+			FnName: model.NewCIStr(ast.IntervalTime), 
+			Args:[]ast.ExprNode{
+				$2.(ast.ExprNode),
+				ast.NewValueExpr($3),
+			},
+		}
+}
 
 GetFormatSelector:
 	"DATE"

@@ -200,6 +200,43 @@ func (b *builtinLeastSig) eval(row []types.Datum) (d types.Datum, err error) {
 	return
 }
 
+type intervalTimeFunctionClass struct {
+	baseFunctionClass
+}
+
+// See https://dev.mysql.com/doc/refman/5.7/en/date-and-time-functions.html#function_date-add.
+func (c *intervalTimeFunctionClass) getFunction(args []Expression, ctx context.Context) (builtinFunc, error) {
+	err := c.verifyArgs(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	bf, err := newBaseBuiltinFuncWithTp(args, ctx, tpTime, tpString, tpString)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	sig := &builtinIntervalTimeSig{bf}
+	return sig.setSelf(sig), nil
+}
+
+type builtinIntervalTimeSig struct {
+	baseTimeBuiltinFunc
+}
+
+func (b *builtinIntervalTimeSig) evalTime(row []types.Datum) (d types.Time, isNull bool, err error) {
+	sc := b.getCtx().GetSessionVars().StmtCtx
+	expr, isNull, err := b.args[0].EvalString(row, sc)
+	if err != nil || isNull {
+		return d, isNull, errors.Trace(err)
+	}
+
+	unit, isNull, err := b.args[1].EvalString(row, sc)
+	if err != nil || isNull {
+		return d, isNull, errors.Trace(err)
+	}
+}
+
 type intervalFunctionClass struct {
 	baseFunctionClass
 }

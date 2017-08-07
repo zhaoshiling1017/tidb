@@ -564,11 +564,12 @@ type BuiltinFunc func([]types.Datum, context.Context) (types.Datum, error)
 // funcs holds all registered builtin functions.
 var funcs = map[string]functionClass{
 	// common functions
-	ast.Coalesce: &coalesceFunctionClass{baseFunctionClass{ast.Coalesce, 1, -1}},
-	ast.IsNull:   &isNullFunctionClass{baseFunctionClass{ast.IsNull, 1, 1}},
-	ast.Greatest: &greatestFunctionClass{baseFunctionClass{ast.Greatest, 2, -1}},
-	ast.Least:    &leastFunctionClass{baseFunctionClass{ast.Least, 2, -1}},
-	ast.Interval: &intervalFunctionClass{baseFunctionClass{ast.Interval, 2, -1}},
+	ast.Coalesce:     &coalesceFunctionClass{baseFunctionClass{ast.Coalesce, 1, -1}},
+	ast.IsNull:       &isNullFunctionClass{baseFunctionClass{ast.IsNull, 1, 1}},
+	ast.Greatest:     &greatestFunctionClass{baseFunctionClass{ast.Greatest, 2, -1}},
+	ast.Least:        &leastFunctionClass{baseFunctionClass{ast.Least, 2, -1}},
+	ast.Interval:     &intervalFunctionClass{baseFunctionClass{ast.Interval, 2, -1}},
+	ast.IntervalTime: &intervalTimeFunctionClass{baseFunctionClass{ast.IntervalTime, 2, 2}},
 
 	// math functions
 	ast.Abs:      &absFunctionClass{baseFunctionClass{ast.Abs, 1, 1}},
