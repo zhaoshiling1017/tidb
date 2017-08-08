@@ -312,18 +312,56 @@ type encryptFunctionClass struct {
 }
 
 func (c *encryptFunctionClass) getFunction(args []Expression, ctx context.Context) (builtinFunc, error) {
-	sig := &builtinEncryptSig{newBaseBuiltinFunc(args, ctx)}
-	return sig.setSelf(sig), errors.Trace(c.verifyArgs(args))
+	err := c.verifyArgs(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var bf baseBuiltinFunc
+	if len(args) == 2 {
+		bf, err = newBaseBuiltinFuncWithTp(args, ctx, tpString, tpString, tpString)
+	} else {
+		bf, err = newBaseBuiltinFuncWithTp(args, ctx, tpString, tpString)
+	}
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	types.SetBinChsClnFlag(bf.tp)
+	sig := &builtinEncryptSig{baseStringBuiltinFunc{bf}}
+	return sig.setSelf(sig), nil
 }
 
 type builtinEncryptSig struct {
-	baseBuiltinFunc
+	baseStringBuiltinFunc
 }
 
 // eval evals a builtinEncryptSig.
-// See https://dev.mysql.com/doc/refman/5.7/en/encryption-functions.html#function_encrypt
-func (b *builtinEncryptSig) eval(row []types.Datum) (d types.Datum, err error) {
-	return d, errFunctionNotExists.GenByArgs("ENCRYPT")
+// See https://dev.mysql.com/doc/refman/5.7/en/encryption-functions.html#function_encrypt.
+func (b *builtinEncryptSig) evalString(row []types.Datum) (res string, isNull bool, err error) {
+	sc := b.getCtx().GetSessionVars().StmtCtx
+	str, isNull, err := b.args[0].EvalString(row, sc)
+	if isNull || err != nil {
+		return "", isNull, errors.Trace(err)
+	}
+
+	if len(b.args) == 2 {
+		salt, isNull, err := b.args[1].EvalString(row, sc)
+		if isNull || err != nil {
+			return "", isNull, errors.Trace(err)
+		}
+
+		if len(salt) < 2 {
+			// The salt argument must be a string with at least two
+			// characters or the result will be NULL.
+			return "", true, nil
+		}
+
+		crypted, err := encrypt.Crypt(str, salt)
+		return crypted, false, errors.Trace(err)
+	}
+
+	return
 }
 
 type md5FunctionClass struct {
