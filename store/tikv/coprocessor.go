@@ -451,6 +451,10 @@ func (it *copIterator) handleTask(bo *Backoffer, task *copTask) []copResponse {
 				Ranges: task.ranges.toPBRanges(),
 			},
 		}
+		for _, r := range req.Cop.Ranges {
+			fmt.Println("xxx send cop request:", r.Start, r.End)
+		}
+
 		resp, err := sender.SendReq(bo, req, task.region, readTimeoutMedium)
 		if err != nil {
 			return []copResponse{{err: errors.Trace(err)}}
